@@ -2,7 +2,10 @@
 
 > One prompt. Infinite possibilities.
 
-Plataforma all-in-one de criação com IA — imagens, vídeos, avatares, voz e música.
+Plataforma de criação com IA — imagens de alta qualidade (powered by **Krea**), avatares, voz e música.
+
+**Status atual**: Foco em geração de imagens via Krea AI.  
+Vídeo (text-to-video / image-to-video) **desabilitado temporariamente**.
 
 ## Stack
 
@@ -11,7 +14,7 @@ Plataforma all-in-one de criação com IA — imagens, vídeos, avatares, voz e 
 - **Banco**: Supabase (PostgreSQL + Storage)
 - **Auth**: Supabase Auth
 - **Pagamentos**: Stripe
-- **AI**: Replicate, fal.ai, RunwayML, ElevenLabs, OpenAI
+- **AI Images**: Krea AI (Krea 2 Medium / Large)
 
 ## Setup rápido
 
@@ -23,7 +26,7 @@ cd genora
 
 # 2. Configure variáveis de ambiente
 cp .env.local.example .env.local
-# Edite .env.local com suas chaves
+# Edite .env.local com suas chaves (obrigatório: KREA_API_KEY)
 
 # 3. Configure o banco de dados
 # Cole o conteúdo de schema.sql no Supabase SQL Editor
@@ -32,47 +35,50 @@ cp .env.local.example .env.local
 npm run dev
 ```
 
-## Estrutura de pastas
+## Variáveis importantes
+
+```env
+KREA_API_KEY=sua_chave_krea          # Obrigatório para imagens
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+```
+
+Gere sua chave em: https://www.krea.ai/settings/api-tokens
+
+## Planos
+
+| Plano     | Preço/mês | Créditos |
+|-----------|-----------|----------|
+| Free      | Grátis    | 50       |
+| Pro       | R$ 59     | 500      |
+| Business  | R$ 199    | 2.000    |
+
+## Estrutura principal
 
 ```
 genora/
 ├── app/
-│   ├── (public)/          # Landing + Pricing (sem auth)
+│   ├── (public)/          # Landing + Pricing
 │   ├── (auth)/            # Login + Signup
-│   ├── (dashboard)/       # Dashboard, Studio, Projetos, Conta
-│   └── api/               # API Routes
-│       ├── auth/          # Supabase auth callback
-│       ├── generate/      # image, video, avatar, voice, music
-│       ├── credits/       # Saldo de créditos
-│       ├── plans/         # Listagem de planos
-│       ├── projects/      # CRUD de projetos
-│       ├── checkout/      # Stripe Checkout Session
-│       └── webhooks/      # Stripe Webhooks
-├── components/
-│   ├── ui/                # shadcn/ui
-│   ├── studio/            # Editores por feature
-│   ├── gallery/           # Grid de resultados
-│   ├── layout/            # Header, Sidebar, Footer
-│   └── modals/            # UpgradeModal, etc.
-├── hooks/                 # useGeneration, useCredits, useProjects
-├── lib/
-│   ├── supabase/          # client, server, admin, queries
-│   ├── ai/                # image, video, voice, music, prompt
-│   ├── stripe/            # checkout e webhooks
-│   └── utils/             # cn, withAuth, withCredits
-├── store/                 # Zustand (user, generation)
-├── types/                 # TypeScript types globais
-└── middleware.ts           # Auth + redirect guard
+│   ├── (dashboard)/       # Dashboard, Studio, Projetos
+│   └── api/
+│       ├── generate/      # image (Krea), voice, music...
+│       ├── credits/
+│       ├── projects/
+│       └── ...
+├── lib/ai/                # image.ts (Krea), voice, music...
+└── ...
 ```
 
-## Variáveis de ambiente
+## Integração Krea
 
-Veja `.env.local.example` para a lista completa.
+O arquivo `lib/ai/image.ts` usa o SDK oficial `@krea-ai/sdk`.
 
-## Planos
+Modelos suportados:
+- `krea-2-medium` (padrão, mais rápido e barato)
+- `krea-2-large` (maior qualidade)
 
-| Plano    | Preço/mês | Créditos |
-|----------|-----------|----------|
-| Free     | Grátis    | 50       |
-| Pro      | R$ 59     | 500      |
-| Business | R$ 199    | 2.000    |
+Feito com ❤️ para criadores.

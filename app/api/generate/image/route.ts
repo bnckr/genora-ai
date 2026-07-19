@@ -8,7 +8,7 @@ export const maxDuration = 60
 
 export const POST = withAuth(async (req: NextRequest, user) => {
   const body = await req.json()
-  const { prompt, model = 'flux-schnell', projectId, metadata = {} } = body
+  const { prompt, model = 'krea-2-medium', projectId, aspectRatio = '1:1', metadata = {} } = body
 
   if (!prompt?.trim()) {
     return NextResponse.json({ error: 'prompt is required' }, { status: 400 })
@@ -30,10 +30,10 @@ export const POST = withAuth(async (req: NextRequest, user) => {
       feature:      'image',
       prompt,
       model,
-      provider:     'replicate',
+      provider:     'krea',
       status:       'processing',
       credits_used: credits,
-      metadata,
+      metadata:     { ...metadata, aspectRatio },
     })
     .select()
     .single()
@@ -56,24 +56,24 @@ export const POST = withAuth(async (req: NextRequest, user) => {
   }
 
   try {
-    const result = await generateImage({ prompt, model })
+    const result = await generateImage({
+      prompt,
+      model: model as any,
+      aspectRatio: aspectRatio as any,
+    })
 
-    if (result.status === 'pending') {
-      // Replicate ainda processando — atualiza jobId e retorna para polling via SSE
+    if (result.status === 'failed') {
       await supabaseAdmin
         .from('generations')
-        .update({ status: 'pending', job_id: result.jobId })
+        .update({ status: 'failed', error_msg: result.error })
         .eq('id', generation.id)
 
-      return NextResponse.json({
-        generation: { ...generation, status: 'pending', job_id: result.jobId },
-      })
+      return NextResponse.json({ error: 'Generation failed', detail: result.error }, { status: 500 })
     }
 
-    // Replicate retornou URLs direto (Prefer: wait)
     const urls = result.outputUrls ?? []
 
-    // Cria os assets com as URLs do Replicate
+    // Cria os assets com as URLs do Krea
     const assets = await Promise.all(
       urls.map((cdn_url) =>
         supabaseAdmin
@@ -81,7 +81,7 @@ export const POST = withAuth(async (req: NextRequest, user) => {
           .insert({
             generation_id: generation.id,
             user_id:       user.id,
-            storage_path:  cdn_url, // URL externa do Replicate
+            storage_path:  cdn_url,
             cdn_url,
             type:          'image',
             is_public:     false,
