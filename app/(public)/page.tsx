@@ -7,8 +7,8 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-20 pb-32">
         {/* Background glow */}
-        <div className="absolute inset-0 bg-gradient-hero pointer-events-none" />
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-brand-600/20 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_#4C1D95_0%,_#0D0622_70%)] pointer-events-none" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-violet-600/20 rounded-full blur-[120px] pointer-events-none" />
 
         <div className="relative z-10 text-center max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm text-cyan-400 mb-8">
@@ -19,7 +19,7 @@ export default function LandingPage() {
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight mb-6">
             One prompt.
             <br />
-            <span className="bg-gradient-to-r from-brand-400 via-cyan-400 to-brand-300 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-violet-400 via-cyan-400 to-violet-300 bg-clip-text text-transparent">
               Infinite possibilities.
             </span>
           </h1>
@@ -32,7 +32,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/signup"
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-brand-600 to-cyan-500 hover:from-brand-500 hover:to-cyan-400 text-white font-semibold rounded-xl transition-all shadow-lg shadow-brand-600/30 hover:shadow-cyan-500/40"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-violet-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white font-semibold rounded-xl transition-all shadow-lg shadow-violet-600/30"
             >
               Começar grátis
               <ArrowRight className="w-5 h-5" />
@@ -119,13 +119,15 @@ function FeatureCard({
     <div
       className={`p-6 rounded-2xl border transition-all ${
         highlight
-          ? 'bg-gradient-to-b from-brand-900/50 to-transparent border-brand-500/40 shadow-lg shadow-brand-900/20'
+          ? 'bg-gradient-to-b from-violet-900/50 to-transparent border-violet-500/40 shadow-lg shadow-violet-900/20'
           : 'bg-white/5 border-white/10 hover:border-white/20'
       }`}
     >
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${
-        highlight ? 'bg-cyan-500/20 text-cyan-400' : 'bg-white/10 text-white'
-      }`}>
+      <div
+        className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${
+          highlight ? 'bg-cyan-500/20 text-cyan-400' : 'bg-white/10 text-white'
+        }`}
+      >
         {icon}
       </div>
       <h3 className="text-xl font-semibold mb-2">{title}</h3>

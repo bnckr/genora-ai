@@ -4,7 +4,6 @@ export interface ImageInput {
   prompt: string
   model?: 'krea-2-medium' | 'krea-2-large'
   aspectRatio?: '1:1' | '4:3' | '2:3' | '16:9' | '9:16'
-  seed?: number
 }
 
 export interface GenerationResult {
@@ -36,7 +35,6 @@ export async function generateImage(input: ImageInput): Promise<GenerationResult
       },
     })
 
-    // SDK pode retornar em formatos ligeiramente diferentes
     const urls =
       (result as any).data?.urls ??
       (result as any).result?.urls ??

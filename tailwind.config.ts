@@ -31,17 +31,6 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
       },
-      animation: {
-        'pulse-slow': 'pulse 3s ease-in-out infinite',
-        'spin-slow':  'spin 8s linear infinite',
-        'glow': 'glow 2s ease-in-out infinite alternate',
-      },
-      keyframes: {
-        glow: {
-          '0%': { boxShadow: '0 0 5px #19E6FF, 0 0 10px #19E6FF' },
-          '100%': { boxShadow: '0 0 20px #19E6FF, 0 0 30px #5E1BFF' },
-        },
-      },
       backgroundImage: {
         'gradient-brand': 'linear-gradient(135deg, #2B0B5A 0%, #5E1BFF 50%, #19E6FF 100%)',
         'gradient-hero': 'radial-gradient(ellipse at top, #4C1D95 0%, #0D0622 70%)',
