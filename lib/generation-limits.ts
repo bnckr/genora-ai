@@ -37,22 +37,26 @@ export async function checkGenerationLimit(userId: string) {
 }
 
 export async function recordGeneration(userId: string, creditsUsed: number = 1) {
-  // Registra a geração
-  await supabase.from('generations').insert([{
-    user_id: userId,
-    feature: 'image_generation',
-    prompt: 'gerado via api', // você pode passar o prompt real
-    model: 'krea-2-turbo',
-    provider: 'krea',
-    status: 'completed',
-    credits_used: creditsUsed,
-  }]);
-
-  // Desconta créditos
+  // 1. Registra a geração
   await supabase
-    .from('users')
-    .update({ 
-      credits_balance: supabase.raw(`credits_balance - ${creditsUsed}`) 
-    })
-    .eq('id', userId);
+    .from('generations')
+    .insert([{
+      user_id: userId,
+      feature: 'image_generation',
+      prompt: '', // você pode passar o prompt real da requisição
+      model: 'krea-2-turbo',
+      provider: 'krea',
+      status: 'completed',
+      credits_used: creditsUsed,
+    }]);
+
+  // 2. Desconta créditos (forma correta)
+  const { error } = await supabase.rpc('decrement_credits', {
+    p_user_id: userId,
+    p_amount: creditsUsed
+  });
+
+  if (error) {
+    console.error('Erro ao descontar créditos:', error);
+  }
 }
