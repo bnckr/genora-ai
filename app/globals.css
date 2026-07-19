@@ -1,13 +1,17 @@
-@import "tailwindcss/base";
-@import "tailwindcss/components";
-@import "tailwindcss/utilities";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
+  :root {
+    --background: 250 60% 5%;
+    --foreground: 210 40% 98%;
+    --border: 240 3.7% 15.9%;
+  }
+
   body {
     background-color: #0D0622;
     color: white;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
   }
 }
 

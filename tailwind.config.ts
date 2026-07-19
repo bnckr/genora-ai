@@ -1,16 +1,23 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: "class",
+  darkMode: ["class"],
   content: [
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
   ],
-  
   theme: {
     extend: {
       colors: {
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
         brand: {
           50: "#f5f3ff",
           100: "#ede9fe",
@@ -28,16 +35,6 @@ const config: Config = {
           400: "#22d3ee",
           500: "#19E6FF",
         },
-      },
-      fontFamily: {
-        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
-        display: ["var(--font-space)", "system-ui", "sans-serif"],
-      },
-      backgroundImage: {
-        "gradient-brand":
-          "linear-gradient(135deg, #2B0B5A 0%, #5E1BFF 50%, #19E6FF 100%)",
-        "gradient-hero":
-          "radial-gradient(ellipse at top, #4C1D95 0%, #0D0622 70%)",
       },
     },
   },
