@@ -16,7 +16,12 @@ export interface GenerationResult {
 
 export async function generateImage(input: ImageInput): Promise<GenerationResult> {
   if (!process.env.KREA_API_KEY) {
-    throw new Error('KREA_API_KEY is not configured')
+    return {
+      jobId: crypto.randomUUID(),
+      provider: 'krea',
+      status: 'failed',
+      error: 'KREA_API_KEY is not configured',
+    }
   }
 
   const krea = new Krea({ apiKey: process.env.KREA_API_KEY })
@@ -38,13 +43,14 @@ export async function generateImage(input: ImageInput): Promise<GenerationResult
     const urls =
       (result as any).data?.urls ??
       (result as any).result?.urls ??
+      (result as any).output?.urls ??
       []
 
     return {
       jobId: (result as any).job_id || crypto.randomUUID(),
       provider: 'krea',
       status: 'completed',
-      outputUrls: urls,
+      outputUrls: Array.isArray(urls) ? urls : [],
     }
   } catch (err) {
     console.error('[AI] Krea generation failed', err)

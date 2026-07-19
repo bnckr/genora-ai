@@ -1,120 +1,154 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAuth } from '@/lib/utils/withAuth'
-import { checkCredits, getCreditCost } from '@/lib/utils/withCredits'
+import { createClient } from '@/lib/supabase/server'
 import { generateImage } from '@/lib/ai/image'
-import { supabaseAdmin } from '@/lib/supabase/admin'
 
 export const maxDuration = 60
 
-export const POST = withAuth(async (req: NextRequest, user) => {
-  const body = await req.json()
-  const { prompt, model = 'krea-2-medium', projectId, aspectRatio = '1:1', metadata = {} } = body
-
-  if (!prompt?.trim()) {
-    return NextResponse.json({ error: 'prompt is required' }, { status: 400 })
-  }
-
-  const credits    = await getCreditCost('image', model)
-  const hasCredits = await checkCredits(user.id, credits)
-
-  if (!hasCredits) {
-    return NextResponse.json({ error: 'insufficient_credits' }, { status: 402 })
-  }
-
-  // Cria registro da geração
-  const { data: generation, error: genError } = await supabaseAdmin
-    .from('generations')
-    .insert({
-      user_id:      user.id,
-      project_id:   projectId ?? null,
-      feature:      'image',
-      prompt,
-      model,
-      provider:     'krea',
-      status:       'processing',
-      credits_used: credits,
-      metadata:     { ...metadata, aspectRatio },
-    })
-    .select()
-    .single()
-
-  if (genError || !generation) {
-    return NextResponse.json({ error: 'Failed to create generation' }, { status: 500 })
-  }
-
-  // Debita créditos atomicamente
-  const { error: debitError } = await supabaseAdmin.rpc('debit_credits', {
-    p_user_id:       user.id,
-    p_amount:        credits,
-    p_reason:        'image_generation',
-    p_generation_id: generation.id,
-  })
-
-  if (debitError) {
-    await supabaseAdmin.from('generations').delete().eq('id', generation.id)
-    return NextResponse.json({ error: debitError.message }, { status: 402 })
-  }
-
+export async function POST(req: NextRequest) {
   try {
-    const result = await generateImage({
-      prompt,
-      model: model as any,
-      aspectRatio: aspectRatio as any,
-    })
+    const supabase = await createClient()
 
-    if (result.status === 'failed') {
-      await supabaseAdmin
-        .from('generations')
-        .update({ status: 'failed', error_msg: result.error })
-        .eq('id', generation.id)
-
-      return NextResponse.json({ error: 'Generation failed', detail: result.error }, { status: 500 })
+    // 1. Autenticação
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    const urls = result.outputUrls ?? []
+    // 2. Body
+    const body = await req.json()
+    const {
+      prompt,
+      model = 'krea-2-medium',
+      aspectRatio = '1:1',
+    } = body
 
-    // Cria os assets com as URLs do Krea
-    const assets = await Promise.all(
-      urls.map((cdn_url) =>
-        supabaseAdmin
-          .from('assets')
-          .insert({
-            generation_id: generation.id,
-            user_id:       user.id,
-            storage_path:  cdn_url,
-            cdn_url,
-            type:          'image',
-            is_public:     false,
-          })
-          .select()
-          .single()
-          .then(({ data }) => data),
-      ),
-    )
+    if (!prompt?.trim()) {
+      return NextResponse.json({ error: 'prompt is required' }, { status: 400 })
+    }
 
-    await supabaseAdmin
-      .from('generations')
-      .update({ status: 'completed', job_id: result.jobId })
-      .eq('id', generation.id)
+    // 3. Custo em créditos
+    const creditCost = model === 'krea-2-large' ? 3 : 1
 
-    const { data: updatedUser } = await supabaseAdmin
+    // 4. Busca saldo do usuário
+    const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('credits_balance')
       .eq('id', user.id)
       .single()
 
-    return NextResponse.json({
-      generation:      { ...generation, status: 'completed' },
-      assets,
-      credits_balance: updatedUser?.credits_balance ?? 0,
+    if (profileError || !profile) {
+      return NextResponse.json({ error: 'Perfil não encontrado' }, { status: 404 })
+    }
+
+    if (profile.credits_balance < creditCost) {
+      return NextResponse.json({ error: 'insufficient_credits' }, { status: 402 })
+    }
+
+    // 5. Cria registro da geração
+    const { data: generation, error: genError } = await supabase
+      .from('generations')
+      .insert({
+        user_id: user.id,
+        feature: 'image',
+        prompt: prompt.trim(),
+        model,
+        provider: 'krea',
+        status: 'processing',
+        credits_used: creditCost,
+        metadata: { aspectRatio },
+      })
+      .select()
+      .single()
+
+    if (genError || !generation) {
+      console.error('Erro ao criar generation:', genError)
+      return NextResponse.json({ error: 'Falha ao criar geração' }, { status: 500 })
+    }
+
+    // 6. Debita créditos
+    const newBalance = profile.credits_balance - creditCost
+
+    const { error: debitError } = await supabase
+      .from('users')
+      .update({ credits_balance: newBalance })
+      .eq('id', user.id)
+
+    if (debitError) {
+      // rollback da generation
+      await supabase.from('generations').delete().eq('id', generation.id)
+      return NextResponse.json({ error: 'Falha ao debitar créditos' }, { status: 500 })
+    }
+
+    // 7. Registra transação de créditos
+    await supabase.from('credit_transactions').insert({
+      user_id: user.id,
+      amount: -creditCost,
+      type: 'usage',
+      reason: 'image_generation',
+      generation_id: generation.id,
+      balance_after: newBalance,
     })
 
-  } catch (err) {
-    await supabaseAdmin
+    // 8. Gera a imagem com Krea
+    const result = await generateImage({
+      prompt: prompt.trim(),
+      model: model as 'krea-2-medium' | 'krea-2-large',
+      aspectRatio: aspectRatio as any,
+    })
+
+    if (result.status === 'failed' || !result.outputUrls?.length) {
+      await supabase
+        .from('generations')
+        .update({
+          status: 'failed',
+          error_msg: result.error || 'Nenhuma imagem retornada',
+        })
+        .eq('id', generation.id)
+
+      return NextResponse.json(
+        { error: 'Generation failed', detail: result.error },
+        { status: 500 }
+      )
+    }
+
+    // 9. Salva os assets
+    const assetsToInsert = result.outputUrls.map((url) => ({
+      generation_id: generation.id,
+      user_id: user.id,
+      storage_path: url,
+      cdn_url: url,
+      type: 'image',
+      is_public: false,
+    }))
+
+    const { data: assets, error: assetsError } = await supabase
+      .from('assets')
+      .insert(assetsToInsert)
+      .select()
+
+    if (assetsError) {
+      console.error('Erro ao salvar assets:', assetsError)
+    }
+
+    // 10. Marca generation como completed
+    await supabase
       .from('generations')
-      .update({ status: 'failed', error_msg: String(err) })
+      .update({
+        status: 'completed',
+        job_id: result.jobId,
+      })
       .eq('id', generation.id)
 
-    return NextResponse.json({ error: 'Generation failed', detail: String(err) }, { status: 500 })
+    return NextResponse.json({
+      generation: { ...generation, status: 'completed' },
+      assets: assets || [],
+      credits_balance: newBalance,
+    })
+  } catch (err) {
+    console.error('[API] generate/image error:', err)
+    return NextResponse.json(
+      { error: 'Internal server error', detail: String(err) },
+      { status: 500 }
+    )
   }
-})
+}
