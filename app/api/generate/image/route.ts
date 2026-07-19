@@ -1,154 +1,231 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { generateImage } from '@/lib/ai/image'
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { generateImage } from "@/lib/ai/image";
 
-export const maxDuration = 60
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await createClient();
 
     // 1. Autenticação
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
     // 2. Body
-    const body = await req.json()
+    const body = await req.json();
     const {
       prompt,
-      model = 'krea-2-medium',
-      aspectRatio = '1:1',
-    } = body
+      model = "krea-2-medium",
+      aspectRatio = "1:1",
+      projectId = null,
+    } = body;
 
     if (!prompt?.trim()) {
-      return NextResponse.json({ error: 'prompt is required' }, { status: 400 })
+      return NextResponse.json({ error: "prompt is required" }, { status: 400 });
     }
 
     // 3. Custo em créditos
-    const creditCost = model === 'krea-2-large' ? 3 : 1
+    const creditCost = model === "krea-2-large" ? 3 : 1;
 
-    // 4. Busca saldo do usuário
+    // 4. Busca saldo + preferências
     const { data: profile, error: profileError } = await supabase
-      .from('users')
-      .select('credits_balance')
-      .eq('id', user.id)
-      .single()
+      .from("users")
+      .select("credits_balance, notification_preferences")
+      .eq("id", user.id)
+      .single();
 
     if (profileError || !profile) {
-      return NextResponse.json({ error: 'Perfil não encontrado' }, { status: 404 })
+      return NextResponse.json({ error: "Perfil não encontrado" }, { status: 404 });
     }
 
     if (profile.credits_balance < creditCost) {
-      return NextResponse.json({ error: 'insufficient_credits' }, { status: 402 })
+      return NextResponse.json({ error: "insufficient_credits" }, { status: 402 });
     }
 
-    // 5. Cria registro da geração
+    // 5. Valida projeto (se informado)
+    if (projectId) {
+      const { data: project } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("id", projectId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (!project) {
+        return NextResponse.json({ error: "Projeto inválido" }, { status: 400 });
+      }
+    }
+
+    // 6. Cria registro da geração
     const { data: generation, error: genError } = await supabase
-      .from('generations')
+      .from("generations")
       .insert({
         user_id: user.id,
-        feature: 'image',
+        project_id: projectId || null,
+        feature: "image",
         prompt: prompt.trim(),
         model,
-        provider: 'krea',
-        status: 'processing',
+        provider: "krea",
+        status: "processing",
         credits_used: creditCost,
         metadata: { aspectRatio },
       })
       .select()
-      .single()
+      .single();
 
     if (genError || !generation) {
-      console.error('Erro ao criar generation:', genError)
-      return NextResponse.json({ error: 'Falha ao criar geração' }, { status: 500 })
+      console.error("Erro ao criar generation:", genError);
+      return NextResponse.json({ error: "Falha ao criar geração" }, { status: 500 });
     }
 
-    // 6. Debita créditos
-    const newBalance = profile.credits_balance - creditCost
+    // 7. Debita créditos
+    const newBalance = profile.credits_balance - creditCost;
 
     const { error: debitError } = await supabase
-      .from('users')
+      .from("users")
       .update({ credits_balance: newBalance })
-      .eq('id', user.id)
+      .eq("id", user.id);
 
     if (debitError) {
-      // rollback da generation
-      await supabase.from('generations').delete().eq('id', generation.id)
-      return NextResponse.json({ error: 'Falha ao debitar créditos' }, { status: 500 })
+      await supabase.from("generations").delete().eq("id", generation.id);
+      return NextResponse.json({ error: "Falha ao debitar créditos" }, { status: 500 });
     }
 
-    // 7. Registra transação de créditos
-    await supabase.from('credit_transactions').insert({
+    // 8. Registra transação
+    await supabase.from("credit_transactions").insert({
       user_id: user.id,
       amount: -creditCost,
-      type: 'usage',
-      reason: 'image_generation',
+      type: "usage",
+      reason: "image_generation",
       generation_id: generation.id,
       balance_after: newBalance,
-    })
+    });
 
-    // 8. Gera a imagem com Krea
+    // 9. Gera imagem com Krea
     const result = await generateImage({
       prompt: prompt.trim(),
-      model: model as 'krea-2-medium' | 'krea-2-large',
+      model: model as "krea-2-medium" | "krea-2-large",
       aspectRatio: aspectRatio as any,
-    })
+    });
 
-    if (result.status === 'failed' || !result.outputUrls?.length) {
+    if (result.status === "failed" || !result.outputUrls?.length) {
       await supabase
-        .from('generations')
+        .from("generations")
         .update({
-          status: 'failed',
-          error_msg: result.error || 'Nenhuma imagem retornada',
+          status: "failed",
+          error_msg: result.error || "Nenhuma imagem retornada",
         })
-        .eq('id', generation.id)
+        .eq("id", generation.id);
 
       return NextResponse.json(
-        { error: 'Generation failed', detail: result.error },
+        { error: "Generation failed", detail: result.error },
         { status: 500 }
-      )
+      );
     }
 
-    // 9. Salva os assets
+    // 10. Salva assets
     const assetsToInsert = result.outputUrls.map((url) => ({
       generation_id: generation.id,
       user_id: user.id,
       storage_path: url,
       cdn_url: url,
-      type: 'image',
+      type: "image",
       is_public: false,
-    }))
+    }));
 
     const { data: assets, error: assetsError } = await supabase
-      .from('assets')
+      .from("assets")
       .insert(assetsToInsert)
-      .select()
+      .select();
 
     if (assetsError) {
-      console.error('Erro ao salvar assets:', assetsError)
+      console.error("Erro ao salvar assets:", assetsError);
     }
 
-    // 10. Marca generation como completed
+    // 11. Marca generation como completed
     await supabase
-      .from('generations')
+      .from("generations")
       .update({
-        status: 'completed',
+        status: "completed",
         job_id: result.jobId,
       })
-      .eq('id', generation.id)
+      .eq("id", generation.id);
+
+    // 12. Atualiza thumbnail do projeto
+    if (projectId && result.outputUrls[0]) {
+      await supabase
+        .from("projects")
+        .update({
+          thumbnail_url: result.outputUrls[0],
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", projectId)
+        .eq("user_id", user.id);
+    }
+
+    // 13. Push notification (não bloqueia a resposta)
+    try {
+      const wantsNotify =
+        profile.notification_preferences?.generation_complete !== false;
+
+      if (wantsNotify) {
+        const { data: subs } = await supabase
+          .from("push_subscriptions")
+          .select("*")
+          .eq("user_id", user.id);
+
+        if (subs?.length) {
+          const webpush = (await import("web-push")).default;
+
+          webpush.setVapidDetails(
+            process.env.VAPID_SUBJECT!,
+            process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+            process.env.VAPID_PRIVATE_KEY!
+          );
+
+          const payload = JSON.stringify({
+            title: "Imagem pronta ✨",
+            body: "Sua geração no Genora foi concluída",
+            url: "/studio",
+          });
+
+          await Promise.allSettled(
+            subs.map((s) =>
+              webpush.sendNotification(
+                {
+                  endpoint: s.endpoint,
+                  keys: {
+                    p256dh: s.p256dh,
+                    auth: s.auth,
+                  },
+                },
+                payload
+              )
+            )
+          );
+        }
+      }
+    } catch (pushErr) {
+      console.error("[push] falha ao notificar:", pushErr);
+    }
 
     return NextResponse.json({
-      generation: { ...generation, status: 'completed' },
+      generation: { ...generation, status: "completed" },
       assets: assets || [],
       credits_balance: newBalance,
-    })
+    });
   } catch (err) {
-    console.error('[API] generate/image error:', err)
+    console.error("[API] generate/image error:", err);
     return NextResponse.json(
-      { error: 'Internal server error', detail: String(err) },
+      { error: "Internal server error", detail: String(err) },
       { status: 500 }
-    )
+    );
   }
 }

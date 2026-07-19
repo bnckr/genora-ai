@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Globe,
   Check,
+  FolderOpen,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -22,6 +23,11 @@ type GeneratedImage = {
   id: string;
   url: string;
   published?: boolean;
+};
+
+type Project = {
+  id: string;
+  name: string;
 };
 
 const ASPECT_RATIOS: { value: AspectRatio; label: string }[] = [
@@ -51,6 +57,8 @@ export default function StudioPage() {
   const [prompt, setPrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
   const [model, setModel] = useState<Model>("krea-2-medium");
+  const [projectId, setProjectId] = useState<string>("");
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [images, setImages] = useState<GeneratedImage[]>([]);
@@ -58,13 +66,28 @@ export default function StudioPage() {
 
   const selectedModel = MODELS.find((m) => m.value === model)!;
 
-  // Suporte a Remix vindo do Explore
   useEffect(() => {
     const remixPrompt = searchParams.get("prompt");
-    if (remixPrompt) {
-      setPrompt(remixPrompt);
-    }
+    if (remixPrompt) setPrompt(remixPrompt);
+
+    loadProjects();
   }, [searchParams]);
+
+  async function loadProjects() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("projects")
+      .select("id, name")
+      .eq("user_id", user.id)
+      .eq("is_archived", false)
+      .order("updated_at", { ascending: false });
+
+    setProjects(data || []);
+  }
 
   async function handleGenerate() {
     if (!prompt.trim()) {
@@ -84,6 +107,7 @@ export default function StudioPage() {
           prompt: prompt.trim(),
           model,
           aspectRatio,
+          projectId: projectId || null,
         }),
       });
 
@@ -161,7 +185,6 @@ export default function StudioPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
-      {/* Título */}
       <div className="mb-8">
         <h1 className="font-display text-2xl font-bold mb-1">Studio</h1>
         <p className="text-white/40 text-sm">
@@ -169,15 +192,13 @@ export default function StudioPage() {
         </p>
       </div>
 
-      {/* ===== CARD PRINCIPAL ===== */}
+      {/* CARD PRINCIPAL */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
-        {/* Tabs */}
         <div className="flex items-center gap-1 px-4 pt-3 border-b border-white/5">
           <Tab active icon={<ImageIcon className="w-3.5 h-3.5" />} label="Imagem" />
           <Tab label="Em breve" disabled />
         </div>
 
-        {/* Prompt */}
         <div className="p-4">
           <textarea
             value={prompt}
@@ -192,7 +213,6 @@ export default function StudioPage() {
             }}
           />
 
-          {/* Suggestions */}
           <div className="flex flex-wrap gap-2 mt-3">
             {PROMPT_SUGGESTIONS.map((s) => (
               <button
@@ -207,9 +227,29 @@ export default function StudioPage() {
         </div>
 
         {/* Bottom bar */}
-        <div className="flex items-center justify-between gap-4 px-4 py-3 border-t border-white/5 bg-white/[0.02]">
-          <div className="flex items-center gap-2">
-            {/* Model */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-white/5 bg-white/[0.02]">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Projeto */}
+            <div className="relative">
+              <FolderOpen className="w-3.5 h-3.5 text-white/40 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <select
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+                className="appearance-none pl-8 pr-8 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm text-white/80 outline-none cursor-pointer hover:border-white/20 transition-all"
+              >
+                <option value="" className="bg-[#0D0622]">
+                  Sem projeto
+                </option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id} className="bg-[#0D0622]">
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-white/40 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+
+            {/* Modelo */}
             <div className="relative">
               <select
                 value={model}
@@ -243,11 +283,10 @@ export default function StudioPage() {
             </div>
           </div>
 
-          {/* Generate */}
           <button
             onClick={handleGenerate}
             disabled={loading || !prompt.trim()}
-            className="flex items-center gap-2 px-5 py-2 rounded-xl font-semibold text-sm bg-gradient-to-r from-violet-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 transition-all shadow-lg shadow-violet-600/20 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-2 px-5 py-2 rounded-xl font-semibold text-sm bg-gradient-to-r from-violet-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 transition-all shadow-lg shadow-violet-600/20 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>
@@ -267,7 +306,6 @@ export default function StudioPage() {
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="mt-4 flex items-start gap-2 text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -275,7 +313,7 @@ export default function StudioPage() {
         </div>
       )}
 
-      {/* ===== RESULTADOS ===== */}
+      {/* RESULTADOS */}
       <div className="mt-8">
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 rounded-2xl border border-white/5 bg-white/[0.02]">
@@ -290,12 +328,8 @@ export default function StudioPage() {
         {!loading && images.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 rounded-2xl border border-dashed border-white/10">
             <ImageIcon className="w-8 h-8 text-white/15 mb-3" />
-            <p className="text-white/30 text-sm">
-              Suas criações aparecerão aqui
-            </p>
-            <p className="text-white/20 text-xs mt-1">
-              Dica: use Ctrl+Enter para gerar
-            </p>
+            <p className="text-white/30 text-sm">Suas criações aparecerão aqui</p>
+            <p className="text-white/20 text-xs mt-1">Dica: use Ctrl+Enter para gerar</p>
           </div>
         )}
 
@@ -310,13 +344,8 @@ export default function StudioPage() {
                 key={img.id}
                 className="relative group rounded-2xl overflow-hidden border border-white/10"
               >
-                <img
-                  src={img.url}
-                  alt="Gerada"
-                  className="w-full h-auto"
-                />
+                <img src={img.url} alt="Gerada" className="w-full h-auto" />
 
-                {/* Hover actions */}
                 <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   <button
                     onClick={() => handleDownload(img.url)}
