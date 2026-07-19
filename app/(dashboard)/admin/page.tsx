@@ -6,11 +6,31 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRouter } from 'next/navigation';
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState<any[]>([]);
   const [generations, setGenerations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    checkAdminAccess();
+  }, []);
+
+  const checkAdminAccess = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user || user.email !== 'bnckr@outlook.com') {
+      alert("Acesso negado. Apenas o administrador pode acessar esta página.");
+      router.push('/dashboard');
+      return;
+    }
+
+    setIsAdmin(true);
+    loadData();
+  };
 
   const loadData = async () => {
     const { data: usersData } = await supabase
@@ -32,10 +52,6 @@ export default function AdminDashboard() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
   const updateCredits = async (userId: string, newBalance: number) => {
     await supabase.from('users').update({ credits_balance: newBalance }).eq('id', userId);
     loadData();
@@ -46,13 +62,13 @@ export default function AdminDashboard() {
     loadData();
   };
 
-  if (loading) return <div className="p-8">Carregando painel admin...</div>;
+  if (!isAdmin || loading) return <div className="p-8">Verificando acesso...</div>;
 
   return (
     <div className="p-8 space-y-10">
       <div className="flex justify-between items-center">
-        <h1 className="text-4xl font-bold">Admin Genora</h1>
-        <Button onClick={loadData}>Atualizar Dados</Button>
+        <h1 className="text-4xl font-bold">Painel Administrativo Genora</h1>
+        <Button onClick={loadData}>Atualizar Tudo</Button>
       </div>
 
       {/* Usuários */}
@@ -63,22 +79,30 @@ export default function AdminDashboard() {
         <CardContent>
           <div className="space-y-4">
             {users.map((user) => (
-              <div key={user.id} className="flex items-center justify-between border p-4 rounded-lg">
-                <div>
-                  <p className="font-medium">{user.full_name || user.email}</p>
+              <div key={user.id} className="flex items-center justify-between border p-5 rounded-xl">
+                <div className="flex-1">
+                  <p className="font-semibold">{user.full_name || user.email}</p>
                   <p className="text-sm text-muted-foreground">{user.email}</p>
-                  <Badge variant={user.plan === 'pro' ? 'default' : 'secondary'}>
-                    {user.plan}
-                  </Badge>
+                  <div className="flex gap-2 mt-1">
+                    <Badge variant={user.plan === 'pro' ? 'default' : 'secondary'}>
+                      {user.plan}
+                    </Badge>
+                    <Badge variant={user.role === 'admin' ? 'destructive' : 'outline'}>
+                      {user.role || 'user'}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Input 
-                    type="number"
-                    defaultValue={user.credits_balance}
-                    className="w-28"
-                    onBlur={(e) => updateCredits(user.id, Number(e.target.value))}
-                  />
-                  <Button variant="outline" size="sm">Ver Histórico</Button>
+                
+                <div className="flex items-center gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Créditos</p>
+                    <Input 
+                      type="number"
+                      defaultValue={user.credits_balance}
+                      className="w-28"
+                      onBlur={(e) => updateCredits(user.id, Number(e.target.value))}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -86,31 +110,31 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* Destaques para Homepage */}
+      {/* Destaques */}
       <Card>
         <CardHeader>
-          <CardTitle>Gerações para Destaque na Home/Explorer</CardTitle>
+          <CardTitle>Gerações para Destaque (Explorer / Home)</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {generations.map((gen) => (
-              <div key={gen.id} className="border rounded-xl overflow-hidden">
-                {gen.assets?.[0] && (
+              <div key={gen.id} className="border rounded-xl overflow-hidden group">
+                {gen.assets?.[0]?.cdn_url && (
                   <img 
                     src={gen.assets[0].cdn_url} 
-                    alt="" 
-                    className="w-full h-48 object-cover"
+                    alt={gen.prompt}
+                    className="w-full h-56 object-cover"
                   />
                 )}
-                <div className="p-3">
-                  <p className="text-xs line-clamp-2 mb-3">{gen.prompt}</p>
+                <div className="p-4">
+                  <p className="text-sm line-clamp-2 mb-4">{gen.prompt}</p>
                   <Button 
-                    size="sm" 
+                    size="sm"
                     variant={gen.is_featured ? "default" : "outline"}
-                    onClick={() => toggleFeatured(gen.id, gen.is_featured)}
+                    onClick={() => toggleFeatured(gen.id, gen.is_featured || false)}
                     className="w-full"
                   >
-                    {gen.is_featured ? "Remover Destaque" : "Destacar"}
+                    {gen.is_featured ? "✓ Destacado" : "Destacar na Home"}
                   </Button>
                 </div>
               </div>
