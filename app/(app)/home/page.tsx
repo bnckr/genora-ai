@@ -55,14 +55,14 @@ export default function HomePage() {
           .in("id", genIds);
 
         const promptMap = new Map(
-          (generations || []).map((g) => [g.id, g.prompt])
+          (generations || []).map((g) => [g.id, g.prompt]),
         );
 
         setItems(
           assets.map((a) => ({
             ...a,
             prompt: promptMap.get(a.generation_id),
-          }))
+          })),
         );
       } else {
         setItems([]);
@@ -85,14 +85,14 @@ export default function HomePage() {
           .in("id", genIds);
 
         const promptMap = new Map(
-          (generations || []).map((g) => [g.id, g.prompt])
+          (generations || []).map((g) => [g.id, g.prompt]),
         );
 
         setItems(
           assets.map((a) => ({
             ...a,
             prompt: promptMap.get(a.generation_id),
-          }))
+          })),
         );
       } else {
         setItems([]);
@@ -102,22 +102,21 @@ export default function HomePage() {
     setLoading(false);
   }
 
-  async function handleDownload(url: string) {
-    try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = `genora-${Date.now()}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
-    } catch {
-      window.open(url, "_blank");
-    }
-  }
+  const handleDownload = async (imageUrl: string) => {
+    const proxyUrl = `/api/download?url=${encodeURIComponent(imageUrl)}`;
+
+    const res = await fetch(proxyUrl);
+    const blob = await res.blob();
+
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = `genora-${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">

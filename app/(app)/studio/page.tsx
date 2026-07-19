@@ -117,7 +117,7 @@ export default function StudioPage() {
         setError(
           data.error === "insufficient_credits"
             ? "Créditos insuficientes. Faça upgrade do seu plano."
-            : data.error || data.detail || "Erro ao gerar imagem"
+            : data.error || data.detail || "Erro ao gerar imagem",
         );
         return;
       }
@@ -144,22 +144,21 @@ export default function StudioPage() {
     }
   }
 
-  async function handleDownload(url: string) {
-    try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = `genora-${Date.now()}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
-    } catch {
-      window.open(url, "_blank");
-    }
-  }
+  const handleDownload = async (imageUrl: string) => {
+    const proxyUrl = `/api/download?url=${encodeURIComponent(imageUrl)}`;
+
+    const res = await fetch(proxyUrl);
+    const blob = await res.blob();
+
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = `genora-${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+  };
 
   async function handlePublish(assetId: string) {
     setPublishingId(assetId);
@@ -178,8 +177,8 @@ export default function StudioPage() {
 
     setImages((prev) =>
       prev.map((img) =>
-        img.id === assetId ? { ...img, published: true } : img
-      )
+        img.id === assetId ? { ...img, published: true } : img,
+      ),
     );
   }
 
@@ -195,7 +194,11 @@ export default function StudioPage() {
       {/* CARD PRINCIPAL */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
         <div className="flex items-center gap-1 px-4 pt-3 border-b border-white/5">
-          <Tab active icon={<ImageIcon className="w-3.5 h-3.5" />} label="Imagem" />
+          <Tab
+            active
+            icon={<ImageIcon className="w-3.5 h-3.5" />}
+            label="Imagem"
+          />
           <Tab label="Em breve" disabled />
         </div>
 
@@ -257,7 +260,11 @@ export default function StudioPage() {
                 className="appearance-none pl-3 pr-8 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm text-white/80 outline-none cursor-pointer hover:border-white/20 transition-all"
               >
                 {MODELS.map((m) => (
-                  <option key={m.value} value={m.value} className="bg-[#0D0622]">
+                  <option
+                    key={m.value}
+                    value={m.value}
+                    className="bg-[#0D0622]"
+                  >
                     {m.label}
                   </option>
                 ))}
@@ -328,8 +335,12 @@ export default function StudioPage() {
         {!loading && images.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 rounded-2xl border border-dashed border-white/10">
             <ImageIcon className="w-8 h-8 text-white/15 mb-3" />
-            <p className="text-white/30 text-sm">Suas criações aparecerão aqui</p>
-            <p className="text-white/20 text-xs mt-1">Dica: use Ctrl+Enter para gerar</p>
+            <p className="text-white/30 text-sm">
+              Suas criações aparecerão aqui
+            </p>
+            <p className="text-white/20 text-xs mt-1">
+              Dica: use Ctrl+Enter para gerar
+            </p>
           </div>
         )}
 
@@ -402,8 +413,8 @@ function Tab({
         active
           ? "text-white border-b-2 border-cyan-400"
           : disabled
-          ? "text-white/20 cursor-not-allowed"
-          : "text-white/40 hover:text-white/60"
+            ? "text-white/20 cursor-not-allowed"
+            : "text-white/40 hover:text-white/60"
       }`}
     >
       {icon}

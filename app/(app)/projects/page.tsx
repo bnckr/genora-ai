@@ -253,23 +253,21 @@ export default function ProjectsPage() {
     }
   }
 
-  async function handleDownload(url: string, filename?: string) {
-    try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = filename || `genora-${Date.now()}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
-    } catch {
-      // fallback: abre em nova aba
-      window.open(url, "_blank");
-    }
-  }
+  const handleDownload = async (imageUrl: string) => {
+    const proxyUrl = `/api/download?url=${encodeURIComponent(imageUrl)}`;
+
+    const res = await fetch(proxyUrl);
+    const blob = await res.blob();
+
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = `genora-${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+  };
 
   // ===== VIEW: Projeto aberto =====
   if (selectedProject) {
