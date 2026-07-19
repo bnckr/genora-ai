@@ -25,7 +25,7 @@ export default async function AppLayout({
 
   const { data: profile } = await supabase
     .from("users")
-    .select("credits_balance, full_name, avatar_url")
+    .select("credits_balance, full_name, avatar_url, role")
     .eq("id", user.id)
     .single();
 
@@ -47,7 +47,7 @@ export default async function AppLayout({
         </div>
 
         {/* Nav */}
-        <SidebarNav />
+        <SidebarNav isAdmin={profile?.role === "admin"} />
 
         {/* User footer */}
         <div className="p-3 border-t border-white/5">

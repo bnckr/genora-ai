@@ -7,6 +7,7 @@ import {
   Image as ImageIcon,
   FolderOpen,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 
 const navItems = [
@@ -37,7 +38,7 @@ const navItems = [
   },
 ];
 
-export function SidebarNav() {
+export function SidebarNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
 
   const menuItems = navItems.filter((i) => !i.section);
@@ -91,6 +92,25 @@ export function SidebarNav() {
           );
         })}
       </div>
+
+      {isAdmin && (
+        <div className="pt-4">
+          <p className="px-3 mb-2 text-[11px] font-medium text-white/30 uppercase tracking-wider">
+            Admin
+          </p>
+          <Link
+            href="/admin"
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
+              pathname.startsWith("/admin")
+                ? "bg-white/10 text-white font-medium"
+                : "text-white/50 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            Painel Admin
+          </Link>
+        </div>
+      )}
     </nav>
   );
 }

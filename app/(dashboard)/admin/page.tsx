@@ -6,39 +6,30 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useRouter } from 'next/navigation';
 
+// A proteção de acesso real acontece em app/(dashboard)/layout.tsx (servidor)
+// e nas políticas RLS + funções SECURITY DEFINER do banco.
+// Se esta página está renderizando, o usuário já foi validado como admin.
 export default function AdminDashboard() {
   const [users, setUsers] = useState<any[]>([]);
   const [generations, setGenerations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const router = useRouter();
 
   useEffect(() => {
-    checkAdminAccess();
+    loadData();
   }, []);
 
-  const checkAdminAccess = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user || user.email !== 'bnckr@outlook.com') {
-      alert("Acesso negado. Apenas o administrador pode acessar esta página.");
-      router.push('/dashboard');
-      return;
-    }
-
-    setIsAdmin(true);
-    loadData();
-  };
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadData = async () => {
-    const { data: usersData } = await supabase
+    setLoadError(null);
+
+    const { data: usersData, error: usersError } = await supabase
       .from('users')
       .select('*')
       .order('created_at', { ascending: false });
 
-    const { data: gensData } = await supabase
+    const { data: gensData, error: gensError } = await supabase
       .from('generations')
       .select(`
         *,
@@ -47,22 +38,44 @@ export default function AdminDashboard() {
       .order('created_at', { ascending: false })
       .limit(30);
 
+    if (usersError) console.error('[admin] erro ao buscar users:', usersError);
+    if (gensError) console.error('[admin] erro ao buscar generations:', gensError);
+
+    if (usersError || gensError) {
+      setLoadError(
+        [usersError?.message, gensError?.message].filter(Boolean).join(' | ')
+      );
+    }
+
     setUsers(usersData || []);
     setGenerations(gensData || []);
     setLoading(false);
   };
 
   const updateCredits = async (userId: string, newBalance: number) => {
-    await supabase.from('users').update({ credits_balance: newBalance }).eq('id', userId);
+    const { error } = await supabase.rpc('admin_set_credits', {
+      p_user_id: userId,
+      p_new_balance: newBalance,
+    });
+    if (error) {
+      alert(`Erro ao atualizar créditos: ${error.message}`);
+      return;
+    }
     loadData();
   };
 
-  const toggleFeatured = async (id: string, current: boolean) => {
-    await supabase.from('generations').update({ is_featured: !current }).eq('id', id);
+  const toggleFeatured = async (id: string, _current: boolean) => {
+    const { error } = await supabase.rpc('admin_toggle_featured', {
+      p_generation_id: id,
+    });
+    if (error) {
+      alert(`Erro ao destacar geração: ${error.message}`);
+      return;
+    }
     loadData();
   };
 
-  if (!isAdmin || loading) return <div className="p-8">Verificando acesso...</div>;
+  if (loading) return <div className="p-8">Carregando painel...</div>;
 
   return (
     <div className="p-8 space-y-10">
@@ -70,6 +83,12 @@ export default function AdminDashboard() {
         <h1 className="text-4xl font-bold">Painel Administrativo Genora</h1>
         <Button onClick={loadData}>Atualizar Tudo</Button>
       </div>
+
+      {loadError && (
+        <div className="p-4 rounded-xl border border-red-500/40 bg-red-500/10 text-red-400 text-sm">
+          Erro ao carregar dados: {loadError}
+        </div>
+      )}
 
       {/* Usuários */}
       <Card>

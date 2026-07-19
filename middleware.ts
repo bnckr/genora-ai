@@ -32,7 +32,7 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
 
   // Rotas protegidas (só logado)
-  const protectedRoutes = ['/studio', '/dashboard', '/projects', '/settings']
+  const protectedRoutes = ['/studio', '/dashboard', '/projects', '/settings', '/admin']
   const isProtected = protectedRoutes.some((route) => path.startsWith(route))
 
   // Rotas de auth (só deslogado)
