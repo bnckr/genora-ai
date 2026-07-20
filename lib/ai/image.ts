@@ -6,6 +6,8 @@ export interface ImageInput {
   // 'nano-banana-pro'  -> gemini-3-pro-image-preview   (mais qualidade, mais caro)
   model?: 'nano-banana' | 'nano-banana-pro'
   aspectRatio?: '1:1' | '4:3' | '2:3' | '16:9' | '9:16'
+  // Imagens de referência para edição/fusão (image-to-image). Opcional.
+  referenceImages?: { base64: string; mimeType: string }[]
 }
 
 export interface GeneratedImageFile {
@@ -39,10 +41,22 @@ export async function generateImage(input: ImageInput): Promise<GenerationResult
   const modelName = MODEL_MAP[input.model ?? 'nano-banana']
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 
+  // Sem imagem de referência: texto puro (geração do zero).
+  // Com imagem(ns) de referência: array de parts (texto + inlineData),
+  // que é como o Gemini recebe edição/fusão de imagens (image-to-image).
+  const contents = input.referenceImages?.length
+    ? [
+        { text: input.prompt },
+        ...input.referenceImages.map((img) => ({
+          inlineData: { mimeType: img.mimeType, data: img.base64 },
+        })),
+      ]
+    : input.prompt
+
   try {
     const response = await ai.models.generateContent({
       model: modelName,
-      contents: input.prompt,
+      contents,
       config: {
         responseModalities: ['IMAGE'],
         imageConfig: {

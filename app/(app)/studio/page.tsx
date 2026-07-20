@@ -13,6 +13,8 @@ import {
   Globe,
   Check,
   FolderOpen,
+  Upload,
+  X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -64,8 +66,16 @@ export default function StudioPage() {
   const [error, setError] = useState("");
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [referenceImage, setReferenceImage] = useState<{
+    base64: string;
+    mimeType: string;
+    previewUrl: string;
+    name: string;
+  } | null>(null);
 
   const selectedModel = MODELS.find((m) => m.value === model)!;
+  const currentCreditCost =
+    selectedModel.credits + (referenceImage ? 1 : 0);
 
   useEffect(() => {
     const remixPrompt = searchParams.get("prompt");
@@ -90,6 +100,43 @@ export default function StudioPage() {
     setProjects(data || []);
   }
 
+  const MAX_REFERENCE_MB = 8;
+
+  function handleReferenceUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permite selecionar o mesmo arquivo de novo depois
+    if (!file) return;
+
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      setError("Formato inválido. Use PNG, JPEG ou WEBP.");
+      return;
+    }
+
+    if (file.size > MAX_REFERENCE_MB * 1024 * 1024) {
+      setError(`Imagem muito grande (máx. ${MAX_REFERENCE_MB}MB).`);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(",")[1] || "";
+      setReferenceImage({
+        base64,
+        mimeType: file.type,
+        previewUrl: result,
+        name: file.name,
+      });
+      setError("");
+    };
+    reader.onerror = () => setError("Erro ao ler a imagem selecionada.");
+    reader.readAsDataURL(file);
+  }
+
+  function removeReferenceImage() {
+    setReferenceImage(null);
+  }
+
   async function handleGenerate() {
     if (!prompt.trim()) {
       setError("Digite um prompt para gerar a imagem");
@@ -109,6 +156,9 @@ export default function StudioPage() {
           model,
           aspectRatio,
           projectId: projectId || null,
+          referenceImage: referenceImage
+            ? { base64: referenceImage.base64, mimeType: referenceImage.mimeType }
+            : null,
         }),
       });
 
@@ -139,6 +189,7 @@ export default function StudioPage() {
 
       setImages(generated);
       setPrompt("");
+      setReferenceImage(null);
     } catch {
       setError("Erro de conexão. Tente novamente.");
     } finally {
@@ -230,6 +281,45 @@ export default function StudioPage() {
               </button>
             ))}
           </div>
+
+          {/* Imagem de referência (image-to-image) */}
+          <div className="mt-3">
+            {referenceImage ? (
+              <div className="inline-flex items-center gap-2 pl-2 pr-3 py-2 rounded-xl bg-white/5 border border-white/10">
+                <img
+                  src={referenceImage.previewUrl}
+                  alt="Referência"
+                  className="w-10 h-10 rounded-lg object-cover"
+                />
+                <div className="min-w-0">
+                  <p className="text-xs text-white/70 truncate max-w-[160px]">
+                    {referenceImage.name}
+                  </p>
+                  <p className="text-[10px] text-white/40">
+                    Imagem de referência
+                  </p>
+                </div>
+                <button
+                  onClick={removeReferenceImage}
+                  className="ml-1 p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                  title="Remover imagem de referência"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs text-white/50 bg-white/5 border border-white/10 border-dashed hover:border-white/20 hover:text-white/70 transition-all cursor-pointer">
+                <Upload className="w-3.5 h-3.5" />
+                Adicionar imagem de referência
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handleReferenceUpload}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
         </div>
 
         {/* Bottom bar */}
@@ -308,7 +398,7 @@ export default function StudioPage() {
                 <Wand2 className="w-4 h-4" />
                 Gerar
                 <span className="text-white/60 font-normal">
-                  · {selectedModel.credits} cr
+                  · {currentCreditCost} cr
                 </span>
               </>
             )}

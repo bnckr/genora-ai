@@ -65,14 +65,35 @@ export async function POST(req: NextRequest) {
       model = "nano-banana",
       aspectRatio = "1:1",
       projectId = null,
+      referenceImage = null, // { base64: string, mimeType: string } | null
     } = body;
 
     if (!prompt?.trim()) {
       return NextResponse.json({ error: "prompt is required" }, { status: 400 });
     }
 
-    // 3. Custo em créditos
-    const creditCost = model === "nano-banana-pro" ? 3 : 1;
+    if (referenceImage) {
+      if (!referenceImage.base64 || !referenceImage.mimeType) {
+        return NextResponse.json(
+          { error: "referenceImage inválida" },
+          { status: 400 }
+        );
+      }
+      // ~10MB de base64 (o base64 infla o tamanho original em ~33%)
+      const approxBytes = (referenceImage.base64.length * 3) / 4;
+      if (approxBytes > 10 * 1024 * 1024) {
+        return NextResponse.json(
+          { error: "Imagem de referência muito grande (máx. ~10MB)" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 3. Custo em créditos (edição com imagem de referência custa 1 crédito a mais)
+    const creditCost =
+      model === "nano-banana-pro"
+        ? (referenceImage ? 4 : 3)
+        : (referenceImage ? 2 : 1);
 
     // 4. Busca saldo + preferências
     const { data: profile, error: profileError } = await supabase
@@ -115,7 +136,7 @@ export async function POST(req: NextRequest) {
         provider: "gemini",
         status: "processing",
         credits_used: creditCost,
-        metadata: { aspectRatio },
+        metadata: { aspectRatio, hasReferenceImage: !!referenceImage },
       })
       .select()
       .single();
@@ -163,6 +184,9 @@ export async function POST(req: NextRequest) {
       prompt: prompt.trim(),
       model: model as "nano-banana" | "nano-banana-pro",
       aspectRatio: aspectRatio as any,
+      referenceImages: referenceImage
+        ? [{ base64: referenceImage.base64, mimeType: referenceImage.mimeType }]
+        : undefined,
     });
 
     if (result.status === "failed" || !result.images?.length) {
