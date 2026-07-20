@@ -13,10 +13,10 @@ const plans = [
     highlighted: false,
     features: [
       { text: "50 gerações de imagem", included: true },
-      { text: "Modelo Krea 2 Medium", included: true },
+      { text: "Modelo Nano Banana", included: true },
       { text: "Resolução até 1K", included: true },
       { text: "Histórico básico", included: true },
-      { text: "Modelo Krea 2 Large", included: false },
+      { text: "Modelo Nano Banana Pro", included: false },
       { text: "Prioridade na fila", included: false },
       { text: "Suporte prioritário", included: false },
     ],
@@ -32,8 +32,8 @@ const plans = [
     highlighted: true,
     features: [
       { text: "500 gerações de imagem", included: true },
-      { text: "Modelo Krea 2 Medium", included: true },
-      { text: "Modelo Krea 2 Large", included: true },
+      { text: "Modelo Nano Banana", included: true },
+      { text: "Modelo Nano Banana Pro", included: true },
       { text: "Resolução até 1K", included: true },
       { text: "Prioridade na fila", included: true },
       { text: "Histórico completo", included: true },
@@ -51,7 +51,7 @@ const plans = [
     highlighted: false,
     features: [
       { text: "2.000 gerações de imagem", included: true },
-      { text: "Todos os modelos Krea", included: true },
+      { text: "Todos os modelos Nano Banana", included: true },
       { text: "Resolução máxima", included: true },
       { text: "Prioridade máxima", included: true },
       { text: "Múltiplos usuários", included: true },

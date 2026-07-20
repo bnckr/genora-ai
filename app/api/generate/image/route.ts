@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       prompt,
-      model = "krea-2-medium",
+      model = "nano-banana",
       aspectRatio = "1:1",
       projectId = null,
     } = body;
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Custo em créditos
-    const creditCost = model === "krea-2-large" ? 3 : 1;
+    const creditCost = model === "nano-banana-pro" ? 3 : 1;
 
     // 4. Busca saldo + preferências
     const { data: profile, error: profileError } = await supabase
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
         feature: "image",
         prompt: prompt.trim(),
         model,
-        provider: "krea",
+        provider: "gemini",
         status: "processing",
         credits_used: creditCost,
         metadata: { aspectRatio },
@@ -108,14 +108,14 @@ export async function POST(req: NextRequest) {
       balance_after: newBalance,
     });
 
-    // 9. Gera imagem com Krea
+    // 9. Gera imagem com Gemini (Nano Banana)
     const result = await generateImage({
       prompt: prompt.trim(),
-      model: model as "krea-2-medium" | "krea-2-large",
+      model: model as "nano-banana" | "nano-banana-pro",
       aspectRatio: aspectRatio as any,
     });
 
-    if (result.status === "failed" || !result.outputUrls?.length) {
+    if (result.status === "failed" || !result.images?.length) {
       await supabase
         .from("generations")
         .update({
@@ -159,11 +159,11 @@ export async function POST(req: NextRequest) {
       .eq("id", generation.id);
 
     // 12. Atualiza thumbnail do projeto
-    if (projectId && result.outputUrls[0]) {
+    if (projectId && uploadedUrls[0]) {
       await supabase
         .from("projects")
         .update({
-          thumbnail_url: result.outputUrls[0],
+          thumbnail_url: uploadedUrls[0],
           updated_at: new Date().toISOString(),
         })
         .eq("id", projectId)

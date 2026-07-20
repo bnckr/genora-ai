@@ -2,7 +2,7 @@
 
 > One prompt. Infinite possibilities.
 
-Plataforma de criação com IA — imagens de alta qualidade powered by **Krea**.
+Plataforma de criação com IA — imagens de alta qualidade powered by **Gemini (Nano Banana)**.
 
 ## Setup
 

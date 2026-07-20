@@ -17,7 +17,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 
 type AspectRatio = "1:1" | "16:9" | "9:16" | "4:3" | "2:3";
-type Model = "krea-2-medium" | "krea-2-large";
+type Model = "nano-banana" | "nano-banana-pro";
 
 type GeneratedImage = {
   id: string;
@@ -39,8 +39,8 @@ const ASPECT_RATIOS: { value: AspectRatio; label: string }[] = [
 ];
 
 const MODELS: { value: Model; label: string; credits: number }[] = [
-  { value: "krea-2-medium", label: "Krea 2 Medium", credits: 1 },
-  { value: "krea-2-large", label: "Krea 2 Large", credits: 3 },
+  { value: "nano-banana", label: "Nano Banana", credits: 1 },
+  { value: "nano-banana-pro", label: "Nano Banana Pro", credits: 3 },
 ];
 
 const PROMPT_SUGGESTIONS = [
@@ -56,7 +56,7 @@ export default function StudioPage() {
 
   const [prompt, setPrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
-  const [model, setModel] = useState<Model>("krea-2-medium");
+  const [model, setModel] = useState<Model>("nano-banana");
   const [projectId, setProjectId] = useState<string>("");
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
@@ -328,7 +328,7 @@ export default function StudioPage() {
               <div className="w-14 h-14 rounded-full border-2 border-violet-500/20 border-t-cyan-400 animate-spin" />
               <Sparkles className="w-5 h-5 text-cyan-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
-            <p className="mt-5 text-white/40 text-sm">Criando com Krea...</p>
+            <p className="mt-5 text-white/40 text-sm">Criando com Nano Banana...</p>
           </div>
         )}
 

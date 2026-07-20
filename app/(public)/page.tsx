@@ -46,7 +46,7 @@ export default function LandingPage() {
         <div className="relative z-10 text-center max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm text-cyan-400 mb-8 backdrop-blur-sm">
             <Sparkles className="w-4 h-4" />
-            Powered by Krea AI
+            Powered by Gemini (Nano Banana)
           </div>
 
           <h1 className="font-display text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight mb-6">
@@ -87,15 +87,15 @@ export default function LandingPage() {
             Tudo o que você precisa para criar
           </h2>
           <p className="font-display text-white/60 text-center mb-16 max-w-xl mx-auto">
-            Foque em imagens de alta qualidade com Krea. Mais modalidades em
+            Foque em imagens de alta qualidade com Nano Banana. Mais modalidades em
             breve.
           </p>
 
           <div className="grid md:grid-cols-3 gap-6">
             <FeatureCard
               icon={<ImageIcon className="w-6 h-6" />}
-              title="Imagens com Krea"
-              description="Gere imagens fotorealistas ou artísticas com o modelo Krea 2. Aspect ratios flexíveis e qualidade 1K."
+              title="Imagens com Nano Banana"
+              description="Gere imagens fotorealistas ou artísticas com o Gemini Nano Banana. Aspect ratios flexíveis e qualidade 1K."
               highlight
             />
             <FeatureCard

@@ -16,7 +16,7 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: "Genora AI — One prompt. Infinite possibilities.",
   description:
-    "Crie imagens incríveis com IA de última geração. Powered by Krea.",
+    "Crie imagens incríveis com IA de última geração. Powered by Gemini (Nano Banana).",
 };
 
 export default function RootLayout({
