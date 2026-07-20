@@ -26,9 +26,12 @@ async function callGraphApi(payload: Record<string, unknown>) {
     }),
   });
 
+  const responseBody = await res.text();
+
   if (!res.ok) {
-    const errorBody = await res.text();
-    console.error("[whatsapp] erro ao enviar mensagem:", res.status, errorBody);
+    console.error("[whatsapp] erro ao enviar mensagem:", res.status, responseBody);
+  } else {
+    console.log("[whatsapp] mensagem enviada, resposta da Meta:", responseBody);
   }
 
   return res;
