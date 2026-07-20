@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 // e nas políticas RLS + funções SECURITY DEFINER do banco.
 // Se esta página está renderizando, o usuário já foi validado como admin.
 export default function AdminDashboard() {
+  const supabase = createClient();
   const [users, setUsers] = useState<any[]>([]);
   const [generations, setGenerations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
