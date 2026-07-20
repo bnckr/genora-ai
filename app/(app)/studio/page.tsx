@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Sparkles,
   Loader2,
@@ -53,6 +53,7 @@ const PROMPT_SUGGESTIONS = [
 export default function StudioPage() {
   const supabase = createClient();
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [prompt, setPrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
@@ -137,10 +138,12 @@ export default function StudioPage() {
       }
 
       setImages(generated);
+      setPrompt("");
     } catch {
       setError("Erro de conexão. Tente novamente.");
     } finally {
       setLoading(false);
+      router.refresh();
     }
   }
 

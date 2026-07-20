@@ -6,7 +6,45 @@ export const maxDuration = 60;
 
 const STORAGE_BUCKET = "generations";
 
+async function refundCredits(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  amount: number,
+  balanceBeforeRefund: number,
+  generationId: string,
+  reason: string
+) {
+  const balanceAfterRefund = balanceBeforeRefund + amount;
+
+  const { error: refundError } = await supabase
+    .from("users")
+    .update({ credits_balance: balanceAfterRefund })
+    .eq("id", userId);
+
+  if (refundError) {
+    console.error("Erro ao estornar créditos:", refundError);
+    return balanceBeforeRefund;
+  }
+
+  await supabase.from("credit_transactions").insert({
+    user_id: userId,
+    amount: amount,
+    type: "refund",
+    reason,
+    generation_id: generationId,
+    balance_after: balanceAfterRefund,
+  });
+
+  return balanceAfterRefund;
+}
+
 export async function POST(req: NextRequest) {
+  let creditsDebited = false;
+  let debitedAmount = 0;
+  let balanceAfterDebit = 0;
+  let debitedUserId: string | null = null;
+  let debitedGenerationId: string | null = null;
+
   try {
     const supabase = await createClient();
 
@@ -96,9 +134,19 @@ export async function POST(req: NextRequest) {
       .eq("id", user.id);
 
     if (debitError) {
+      console.error("Erro ao debitar créditos:", debitError);
       await supabase.from("generations").delete().eq("id", generation.id);
-      return NextResponse.json({ error: "Falha ao debitar créditos" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Falha ao debitar créditos", detail: debitError.message },
+        { status: 500 }
+      );
     }
+
+    creditsDebited = true;
+    debitedAmount = creditCost;
+    balanceAfterDebit = newBalance;
+    debitedUserId = user.id;
+    debitedGenerationId = generation.id;
 
     // 8. Registra transação
     await supabase.from("credit_transactions").insert({
@@ -126,8 +174,21 @@ export async function POST(req: NextRequest) {
         })
         .eq("id", generation.id);
 
+      const refundedBalance = await refundCredits(
+        supabase,
+        user.id,
+        creditCost,
+        newBalance,
+        generation.id,
+        "generation_failed"
+      );
+
       return NextResponse.json(
-        { error: "Generation failed", detail: result.error },
+        {
+          error: "Generation failed",
+          detail: result.error,
+          credits_balance: refundedBalance,
+        },
         { status: 500 }
       );
     }
@@ -169,8 +230,20 @@ export async function POST(req: NextRequest) {
         })
         .eq("id", generation.id);
 
+      const refundedBalance = await refundCredits(
+        supabase,
+        user.id,
+        creditCost,
+        newBalance,
+        generation.id,
+        "storage_upload_failed"
+      );
+
       return NextResponse.json(
-        { error: "Falha ao salvar imagens geradas" },
+        {
+          error: "Falha ao salvar imagens geradas",
+          credits_balance: refundedBalance,
+        },
         { status: 500 }
       );
     }
@@ -268,6 +341,27 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[API] generate/image error:", err);
+
+    if (creditsDebited && debitedUserId && debitedGenerationId) {
+      try {
+        const supabase = await createClient();
+        await refundCredits(
+          supabase,
+          debitedUserId,
+          debitedAmount,
+          balanceAfterDebit,
+          debitedGenerationId,
+          "unexpected_error"
+        );
+        await supabase
+          .from("generations")
+          .update({ status: "failed", error_msg: String(err) })
+          .eq("id", debitedGenerationId);
+      } catch (refundErr) {
+        console.error("Erro ao estornar créditos após falha inesperada:", refundErr);
+      }
+    }
+
     return NextResponse.json(
       { error: "Internal server error", detail: String(err) },
       { status: 500 }

@@ -18,6 +18,8 @@ Abra http://localhost:3000
 
 ## Variáveis de ambiente
 
+GEMINI_API_KEY=sua_chave_aqui
+
 Gere em: https://aistudio.google.com/apikey
 
 > Também é necessário um bucket público chamado `generations` no Supabase Storage

@@ -39,16 +39,16 @@ export async function generateImage(input: ImageInput): Promise<GenerationResult
   const modelName = MODEL_MAP[input.model ?? 'nano-banana']
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 
-  // Gemini image models não recebem aspect ratio como parâmetro solto;
-  // a forma suportada é embutir a intenção no próprio prompt.
-  const aspectHint = input.aspectRatio && input.aspectRatio !== '1:1'
-    ? ` Enquadramento e proporção de imagem: ${input.aspectRatio}.`
-    : ''
-
   try {
     const response = await ai.models.generateContent({
       model: modelName,
-      contents: input.prompt + aspectHint,
+      contents: input.prompt,
+      config: {
+        responseModalities: ['IMAGE'],
+        imageConfig: {
+          aspectRatio: input.aspectRatio ?? '1:1',
+        },
+      },
     })
 
     const parts = response.candidates?.[0]?.content?.parts ?? []
