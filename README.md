@@ -9,7 +9,7 @@ Plataforma de criação com IA — imagens de alta qualidade powered by **Gemini
 ```bash
 npm install
 cp .env.example .env.local
-# Adicione sua KREA_API_KEY
+# Adicione sua GEMINI_API_KEY
 
 npm run dev
 ```
@@ -18,8 +18,8 @@ Abra http://localhost:3000
 
 ## Variáveis de ambiente
 
-```
-KREA_API_KEY=sua_chave_aqui
-```
+Gere em: https://aistudio.google.com/apikey
 
-Gere em: https://www.krea.ai/settings/api-tokens
+> Também é necessário um bucket público chamado `generations` no Supabase Storage
+> (Storage → New bucket → marcar como público), usado para hospedar as imagens
+> geradas pelo Gemini antes de exibi-las na UI.

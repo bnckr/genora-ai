@@ -4,6 +4,8 @@ import { generateImage } from "@/lib/ai/image";
 
 export const maxDuration = 60;
 
+const STORAGE_BUCKET = "generations";
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -130,8 +132,51 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 10. Salva assets
-    const assetsToInsert = result.outputUrls.map((url) => ({
+    // 10. Sobe as imagens (base64) pro Supabase Storage e monta as URLs públicas
+    const uploadedUrls: string[] = [];
+
+    for (let i = 0; i < result.images.length; i++) {
+      const img = result.images[i];
+      const ext = img.mimeType.split("/")[1] || "png";
+      const path = `${user.id}/${generation.id}/${i}.${ext}`;
+      const buffer = Buffer.from(img.base64, "base64");
+
+      const { error: uploadError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .upload(path, buffer, {
+          contentType: img.mimeType,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error("Erro ao subir imagem no storage:", uploadError);
+        continue;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from(STORAGE_BUCKET)
+        .getPublicUrl(path);
+
+      uploadedUrls.push(publicUrlData.publicUrl);
+    }
+
+    if (uploadedUrls.length === 0) {
+      await supabase
+        .from("generations")
+        .update({
+          status: "failed",
+          error_msg: "Falha ao salvar imagens no storage",
+        })
+        .eq("id", generation.id);
+
+      return NextResponse.json(
+        { error: "Falha ao salvar imagens geradas" },
+        { status: 500 }
+      );
+    }
+
+    // 11. Salva assets
+    const assetsToInsert = uploadedUrls.map((url) => ({
       generation_id: generation.id,
       user_id: user.id,
       storage_path: url,
@@ -149,7 +194,7 @@ export async function POST(req: NextRequest) {
       console.error("Erro ao salvar assets:", assetsError);
     }
 
-    // 11. Marca generation como completed
+    // 12. Marca generation como completed
     await supabase
       .from("generations")
       .update({
@@ -158,7 +203,7 @@ export async function POST(req: NextRequest) {
       })
       .eq("id", generation.id);
 
-    // 12. Atualiza thumbnail do projeto
+    // 13. Atualiza thumbnail do projeto
     if (projectId && uploadedUrls[0]) {
       await supabase
         .from("projects")
@@ -170,7 +215,7 @@ export async function POST(req: NextRequest) {
         .eq("user_id", user.id);
     }
 
-    // 13. Push notification (não bloqueia a resposta)
+    // 14. Push notification (não bloqueia a resposta)
     try {
       const wantsNotify =
         profile.notification_preferences?.generation_complete !== false;

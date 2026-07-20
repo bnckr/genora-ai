@@ -44,8 +44,8 @@ export async function recordGeneration(userId: string, creditsUsed: number = 1) 
       user_id: userId,
       feature: 'image_generation',
       prompt: '', // você pode passar o prompt real da requisição
-      model: 'krea-2-turbo',
-      provider: 'krea',
+      model: 'nano-banana',
+      provider: 'gemini',
       status: 'completed',
       credits_used: creditsUsed,
     }]);

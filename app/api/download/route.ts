@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get("url");
 
-  if (!url || !url.startsWith("https://gen.krea.ai/")) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!url || !supabaseUrl || !url.startsWith(`${supabaseUrl}/storage/`)) {
     return NextResponse.json({ error: "URL inválida" }, { status: 400 });
   }
 
