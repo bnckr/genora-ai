@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Camera,
   Bell,
+  MessageCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -35,6 +36,7 @@ type Profile = {
   avatar_url: string | null;
   credits_balance: number;
   plan_id: string;
+  whatsapp_number?: string | null;
   notification_preferences?: NotificationPrefs | null;
   plans?: {
     name: string;
@@ -56,6 +58,9 @@ export default function SettingsPage() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [fullName, setFullName] = useState("");
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
+  const [whatsappSaved, setWhatsappSaved] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -90,7 +95,7 @@ export default function SettingsPage() {
     const { data } = await supabase
       .from("users")
       .select(
-        "id, email, full_name, avatar_url, credits_balance, plan_id, notification_preferences, plans(name, credits_monthly, price_brl_cents)"
+        "id, email, full_name, avatar_url, credits_balance, plan_id, whatsapp_number, notification_preferences, plans(name, credits_monthly, price_brl_cents)"
       )
       .eq("id", user.id)
       .single();
@@ -99,17 +104,19 @@ export default function SettingsPage() {
       const p = data as unknown as Profile;
       setProfile(p);
       setFullName(p.full_name || "");
+      setWhatsappNumber(p.whatsapp_number || "");
       setPrefs(p.notification_preferences || DEFAULT_PREFS);
     } else {
       const { data: basic } = await supabase
         .from("users")
-        .select("id, email, full_name, avatar_url, credits_balance, plan_id")
+        .select("id, email, full_name, avatar_url, credits_balance, plan_id, whatsapp_number")
         .eq("id", user.id)
         .single();
 
       if (basic) {
         setProfile(basic as Profile);
         setFullName(basic.full_name || "");
+        setWhatsappNumber(basic.whatsapp_number || "");
       }
     }
 
@@ -141,6 +148,45 @@ export default function SettingsPage() {
     );
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  }
+
+  async function handleSaveWhatsapp(e: React.FormEvent) {
+    e.preventDefault();
+    if (!profile) return;
+
+    setError("");
+    setSavingWhatsapp(true);
+    setWhatsappSaved(false);
+
+    // Mantém só dígitos
+    let digits = whatsappNumber.replace(/\D/g, "");
+
+    // Se a pessoa digitou sem DDI (ex: só DDD + número, 10 ou 11 dígitos),
+    // assume Brasil (55) por padrão.
+    if (digits.length > 0 && digits.length <= 11 && !digits.startsWith("55")) {
+      digits = "55" + digits;
+    }
+
+    const { error } = await supabase
+      .from("users")
+      .update({ whatsapp_number: digits || null })
+      .eq("id", profile.id);
+
+    setSavingWhatsapp(false);
+
+    if (error) {
+      setError(
+        error.code === "23505"
+          ? "Esse número já está vinculado a outra conta."
+          : "Erro ao salvar número do WhatsApp."
+      );
+      return;
+    }
+
+    setWhatsappNumber(digits);
+    setProfile((prev) => (prev ? { ...prev, whatsapp_number: digits } : prev));
+    setWhatsappSaved(true);
+    setTimeout(() => setWhatsappSaved(false), 2500);
   }
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -379,6 +425,53 @@ export default function SettingsPage() {
               </>
             ) : (
               "Salvar alterações"
+            )}
+          </button>
+        </form>
+      </section>
+
+      {/* WHATSAPP */}
+      <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 mb-6">
+        <h2 className="font-display font-semibold mb-1 flex items-center gap-2">
+          <MessageCircle className="w-4 h-4 text-green-400" />
+          Gerar pelo WhatsApp
+        </h2>
+        <p className="text-sm text-white/40 mb-4">
+          Vincule seu número pra gerar imagens direto de uma conversa no WhatsApp,
+          sem precisar abrir o site.
+        </p>
+
+        <form onSubmit={handleSaveWhatsapp} className="space-y-4">
+          <div>
+            <label className="block text-sm text-white/70 mb-1.5">
+              Número do WhatsApp
+            </label>
+            <input
+              type="tel"
+              value={whatsappNumber}
+              onChange={(e) => setWhatsappNumber(e.target.value)}
+              placeholder="+55 11 99999-9999"
+              className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 outline-none focus:border-cyan-500/50 transition-all"
+            />
+            <p className="text-xs text-white/30 mt-1.5">
+              Inclua o DDD. Se não colocar o +55, a gente assume Brasil automaticamente.
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={savingWhatsapp}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/15 border border-white/10 transition-all disabled:opacity-50"
+          >
+            {savingWhatsapp ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : whatsappSaved ? (
+              <>
+                <Check className="w-4 h-4 text-cyan-400" />
+                Salvo
+              </>
+            ) : (
+              "Salvar número"
             )}
           </button>
         </form>
