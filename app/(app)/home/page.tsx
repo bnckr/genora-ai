@@ -24,9 +24,10 @@ type ExploreItem = {
   likes_count?: number;
   recent_likes?: number;
   generation_id?: string;
+  is_featured?: boolean;
 };
 
-type Tab = "top" | "likes" | "mine";
+type Tab = "top" | "community" | "likes" | "mine";
 
 export default function HomePage() {
   const supabase = createClient();
@@ -120,6 +121,30 @@ export default function HomePage() {
           .eq("type", "image");
 
         setItems(await withPrompts(assets || []));
+      } else if (tab === "community") {
+        const { data: assets, error } = await supabase.rpc(
+          "community_assets",
+          { limit_count: 60 },
+        );
+
+        if (error) {
+          console.error("community_assets error:", error);
+
+          // fallback: todas as públicas, sem limite de tempo
+          const { data: fallback } = await supabase
+            .from("assets")
+            .select(
+              "id, cdn_url, created_at, generation_id, width, height, likes_count",
+            )
+            .eq("is_public", true)
+            .eq("type", "image")
+            .order("created_at", { ascending: false })
+            .limit(60);
+
+          setItems(await withPrompts(fallback || []));
+        } else {
+          setItems(await withPrompts(assets || []));
+        }
       } else {
         // TOP DAY
         const { data: assets, error } = await supabase.rpc("top_day_assets", {
@@ -169,6 +194,7 @@ export default function HomePage() {
       height?: number | null;
       likes_count?: number;
       recent_likes?: number;
+      is_featured?: boolean;
     }[]
   ): Promise<ExploreItem[]> {
     if (!assets.length) return [];
@@ -301,6 +327,11 @@ export default function HomePage() {
                 label="Top Day"
               />
               <TabButton
+                active={tab === "community"}
+                onClick={() => setTab("community")}
+                label="Comunidade"
+              />
+              <TabButton
                 active={tab === "likes"}
                 onClick={() => setTab("likes")}
                 label="Likes"
@@ -346,10 +377,12 @@ export default function HomePage() {
                 ? "Você ainda não curtiu nenhuma imagem"
                 : tab === "mine"
                 ? "Você ainda não gerou nenhuma imagem"
+                : tab === "community"
+                ? "Ainda não há imagens públicas na comunidade"
                 : "Nenhuma criação pública nas últimas 24h"}
             </p>
             <p className="text-white/25 text-xs mb-5">
-              Publique imagens no Studio para aparecerem no Top Day
+              Publique imagens no Studio para aparecerem no Top Day e na Comunidade
             </p>
             <Link
               href="/studio"
@@ -373,6 +406,13 @@ export default function HomePage() {
                   className="w-full h-auto block"
                   loading="lazy"
                 />
+
+                {item.is_featured && (
+                  <span className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold bg-gradient-to-r from-violet-600 to-cyan-500 text-white shadow-lg">
+                    <Sparkles className="w-3 h-3" />
+                    Destaque
+                  </span>
+                )}
 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-3">
                   {item.prompt && (
